@@ -18,27 +18,7 @@ const Home = () => {
   };
 
   useEffect(() => {
-    let isMounted = true;
-    
-    const fetchData = async () => {
-      try {
-        const response = await axios.get("http://localhost:5001/api/students");
-        if (isMounted) {  
-          setData(response.data);
-        }
-      } catch (error) {
-        if (isMounted) {
-          console.error("Error fetching data:", error);
-          toast.error("Failed to load student data.");
-        }
-      }
-    };
-
-    fetchData();
-    
-    return () => {
-      isMounted = false;
-    };
+    loadData();
   }, []);
 
   const deleteStudent = async (id) => {
@@ -47,12 +27,11 @@ const Home = () => {
         const response = await axios.delete(`http://localhost:5001/api/remove/${id}`);
         if (response.status === 200) {
           toast.success("Student Deleted Successfully");
-         
           loadData(); 
         }
       } catch (error) {
         console.error("Error deleting student:", error);
-        toast.error("Error deleting student. Please try again.");
+        toast.error("Error deleting student.");
       }
     }
   };
@@ -84,7 +63,7 @@ const Home = () => {
                   <td>{item.contact}</td>
                   <td>
                     <Link to={`/update/${item.id}`}>
-                      <button className="btn btn-edit ">Edit</button>
+                      <button className="btn btn-edit">Edit</button>
                     </Link>
                     <button 
                       className="btn btn-delete" 
@@ -107,3 +86,4 @@ const Home = () => {
 };
 
 export default Home;
+

@@ -16,7 +16,12 @@ const AddEdit = () => {
     useEffect(() => {
         if (id) {
             axios.get(`http://localhost:5001/api/get/${id}`)
-                .then((resp) => setState({ ...resp.data[0] }));
+                .then((resp) => {
+                    // CouchDB returns doc; we take index 0 based on backend response
+                    if(resp.data[0]) {
+                        setState({ ...resp.data[0] });
+                    }
+                });
         }
     }, [id]);
 
@@ -26,21 +31,28 @@ const AddEdit = () => {
             toast.error("Please provide value into each input field");
         } else {
             if (!id) {
+                // ADD NEW STUDENT
                 axios.post("http://localhost:5001/api/students", { name, email, contact })
                     .then(() => {
                         setState(initialState);
                         toast.success("Student Added Successfully");
-                    }).catch((err) => toast.error(err.response.data));
+                        setTimeout(() => navigate("/"), 500);
+                    }).catch((err) => {
+                        console.error("Error saving data:", err);
+                        toast.error("Error saving data");
+                    });
             } else {
+                // UPDATE EXISTING STUDENT
                 axios.put(`http://localhost:5001/api/update/${id}`, { name, email, contact })
                     .then(() => {
                         setState(initialState);
                         toast.success("Student Updated Successfully");
-                    }).catch((err) => toast.error(err.response.data));
+                        setTimeout(() => navigate("/"), 500);
+                    }).catch((err) => {
+                        console.error("Error updating data:", err);
+                        toast.error("Error updating data");
+                    });
             }
-            
-
-            setTimeout(() => navigate("/"), 500);
         }
     };
 
@@ -53,13 +65,13 @@ const AddEdit = () => {
         <div style={{ marginTop: "100px" }}>
             <form style={{ margin: "auto", padding: "15px", maxWidth: "400px" }} onSubmit={handleSubmit}>
                 <label htmlFor="name">Name</label>
-                <input type="text" id="name" name="name" placeholder="Your Name.." value={name || ""} onChange={handleInputChange} />
+                <input type="text" id="name" name="name" placeholder="Name" value={name || ""} onChange={handleInputChange} />
                 
                 <label htmlFor="email">Email</label>
-                <input type="email" id="email" name="email" placeholder="Your Email.." value={email || ""} onChange={handleInputChange} />
+                <input type="email" id="email" name="email" placeholder="Email" value={email || ""} onChange={handleInputChange} />
                 
                 <label htmlFor="contact">Contact</label>
-                <input type="number" id="contact" name="contact" placeholder="Your Contact No.." value={contact || ""} onChange={handleInputChange} />
+                <input type="number" id="contact" name="contact" placeholder="Contact No" value={contact || ""} onChange={handleInputChange} />
                 
                 <input type="submit" value={id ? "Update" : "Add Student"} />
                 <Link to="/">

@@ -1,102 +1,87 @@
-const express=require('express');
-const app=express();
-const cors=require('cors');
-const bodyParser=require('body-parser');
-const mysql=require('mysql2');
+const express = require('express');
+const app = express();
+const cors = require('cors');
+const path = require('path');
+const bodyParser = require('body-parser');
 
-const db=mysql.createConnection({
-    host:'localhost',
-    user:'root',
-    password:'root@123',
-    database:'crud_db'
-});
+// 1. Initialize Nano with your CouchDB credentials
 
+const nano = require('nano')('http://sagar:sagar@1234@localhost:5984'); 
+const dbName = 'students_db';
+const db = nano.use(dbName);
 
+// 2. Middleware
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/api/students',(req,res)=>{
-    const sqlSelect="SELECT * FROM contact_db";
-    db.query(sqlSelect,(err,result)=>{
-        if(err) console.log("Error"+err);
-        else console.log("result: "+result);
-        res.send(result);
-        //res.json(result);
-    });
+
+// GET ALL STUDENTS (Used by Home.jsx)
+app.get('/api/students', async (req, res) => {
+    try {
+        const result = await db.list({ include_docs: true });
+        // Map _id to id so frontend item.id works
+        const students = result.rows
+            .filter(row => !row.id.startsWith('_design'))
+            .map(row => ({
+                id: row.doc._id,
+                name: row.doc.name,
+                email: row.doc.email,
+                contact: row.doc.contact
+            }));
+        res.status(200).json(students); 
+    } catch (err) {
+        res.status(500).send("Error fetching data");
+    }
 });
 
-app.post('/api/students',(req,res)=>{
+// GET SINGLE STUDENT (Used by View.jsx and Edit mode)
+app.get("/api/get/:id", async (req, res) => {
+    try {
+        const doc = await db.get(req.params.id);
+        // Frontend uses resp.data[0], so we return an array
+        res.status(200).json([{ id: doc._id, ...doc }]); 
+    } catch (err) {
+        res.status(404).send("Student not found");
+    }
+});
+
+// POST (Add Student)
+app.post('/api/students', async (req, res) => {
     const { name, email, contact } = req.body;
-    const sqlInsert = "INSERT INTO contact_db (name, email, contact) VALUES (?, ?, ?)";
-    db.query(sqlInsert, [name, email, contact], (err, result) => {
-        if (err) {
-            console.log("Error: " + err);
-            res.status(500).send("Error occurred while inserting data");
-        } else {
-            console.log("Result: " + result);
-            res.send("Data inserted successfully");
-        }
-    });
+    try {
+        await db.insert({ name, email, contact });
+        res.status(200).send("Data inserted successfully");
+    } catch (err) {
+        res.status(500).send("Error inserting data");
+    }
 });
 
-app.delete("/api/remove/:id",(req,res)=>{
-    const {id}=req.params;
-    const sqlRemove="DELETE FROM contact_db WHERE id=?";
-    db.query(sqlRemove,[id],(err,result)=>{
-        if(err){
-            console.log("Error: " + err);
-            res.status(500).send("Error occurred while removing data");
-        }else{
-            console.log("Result: " + result);
-            res.send("Data removed successfully");
-        }
-    });
-});
-app.get("/api/get/:id",(req,res)=>{
-    const {id}=req.params;
-    const sqlGet="SELECT * FROM contact_db WHERE id=?";
-    db.query(sqlGet,[id],(err,result)=>{
-        if(err){
-            console.log("Error: " + err);
-            res.status(500).send("Error occurred while fetching data");
-        }else{
-            console.log("Result: " + result);
-            res.send(result);
-        }
-    });
+// PUT (Update Student)
+app.put("/api/update/:id", async (req, res) => {
+    const { name, email, contact } = req.body;
+    try {
+        // Fetch current doc to get the latest _rev (required for updates)
+        const doc = await db.get(req.params.id);
+        const updatedDoc = { ...doc, name, email, contact };
+        await db.insert(updatedDoc); 
+        res.status(200).send("Data updated successfully");
+    } catch (err) {
+        res.status(500).send("Error updating data");
+    }
 });
 
-app.put("/api/update/:id",(req,res)=>{
-    const {id}=req.params;
-    const {name,email,contact}=req.body;
-    const sqlUpdate="UPDATE contact_db SET name=?, email=?, contact=? WHERE id=?";
-    db.query(sqlUpdate,[name,email,contact,id],(err,result)=>{
-        if(err){
-            console.log("Error: " + err);
-            res.status(500).send("Error occurred while updating data");
-        }else{
-            console.log("Result: " + result);
-            res.send("Data updated successfully");
-        }
-    });
+// DELETE STUDENT
+app.delete("/api/remove/:id", async (req, res) => {
+    try {
+        const doc = await db.get(req.params.id);
+        await db.destroy(req.params.id, doc._rev); // Needs _rev to delete
+        res.status(200).send("Data removed successfully");
+    } catch (err) {
+        res.status(500).send("Error removing data");
+    }
 });
 
-
-app.get('/',(req,res)=>{
-//     const sqlInsert="INSERT INTO contact_db (name,email,contact) VALUES ('Parth', 'parth123@gmail.com', '7678946475')";
-//     db.query(sqlInsert,(err,result)=>{
-//         if(err) console.log("Error"+err);
-//         else console.log("result: "+result);
-//         res.send("Hello World");
-
-//     });
-    
-// }  );
-});
-
-app.listen(5001,()=>{
+app.listen(5001, () => {
     console.log("Server running on http://localhost:5001");
 });
-
-
